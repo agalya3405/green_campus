@@ -12,12 +12,29 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] === 'admin') {
 }
 
 $user_id = (int) $_SESSION['user_id'];
+$user_name = $_SESSION['user_name'];
+
+// Build SELECT so it works even if admin_remarks/updated_at are missing
+$cols = [];
+$r = mysqli_query($conn, "SHOW COLUMNS FROM ideas");
+if ($r) {
+    while ($row = mysqli_fetch_assoc($r)) {
+        $cols[] = $row['Field'];
+    }
+}
+$sel = "i.id, i.title, i.description, i.category, i.status, i.assigned_to, i.created_at, s.name AS assigned_staff_name, p.title AS problem_title";
+if (in_array('staff_remarks', $cols)) $sel .= ", i.staff_remarks";
+if (in_array('admin_remarks', $cols)) $sel .= ", i.admin_remarks";
+if (in_array('updated_at', $cols)) $sel .= ", i.updated_at";
+
 $stmt = mysqli_prepare(
     $conn,
-    "SELECT id, title, description, category, status, assigned_to, admin_remarks, staff_remarks, created_at, updated_at 
-     FROM ideas 
-     WHERE user_id = ? 
-     ORDER BY created_at DESC"
+    "SELECT $sel
+     FROM ideas i
+     LEFT JOIN users s ON i.assigned_staff_id = s.id
+     LEFT JOIN problems p ON i.problem_id = p.id
+     WHERE i.user_id = ?
+     ORDER BY i.created_at DESC"
 );
 mysqli_stmt_bind_param($stmt, "i", $user_id);
 mysqli_stmt_execute($stmt);
@@ -28,71 +45,107 @@ $ideas_result = mysqli_stmt_get_result($stmt);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View My Ideas - Campus Green Innovation Portal</title>
+    <title>My Ideas - Campus Green Innovation Portal</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">Campus Green Innovation Portal</div>
-        <div class="nav-links">
-            <a href="dashboard.php">Dashboard</a>
-            <a href="submit_idea.php">Submit Idea</a>
-            <a href="view_ideas.php" class="active">View My Ideas</a>
-            <span class="nav-user"><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
-            <a href="logout.php">Logout</a>
-        </div>
-    </nav>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="brand-name">Green Campus</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.php" class="nav-item">Dashboard</a>
+                <a href="submit_idea.php" class="nav-item">Submit Idea</a>
+                <a href="view_ideas.php" class="nav-item active">My Ideas</a>
+                <a href="leaderboard.php" class="nav-item">Leaderboard</a>
+                <a href="hall_of_fame.php" class="nav-item">Hall of Fame</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+            </div>
+        </aside>
 
-    <main class="container">
-        <h1>My Ideas</h1>
-        <p class="subtitle">All ideas you have submitted.</p>
-
-        <div class="card">
-            <?php if (mysqli_num_rows($ideas_result) === 0): ?>
-                <p class="empty-state">You haven't submitted any ideas yet. <a href="submit_idea.php">Submit your first idea</a>.</p>
-            <?php else: ?>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Title</th>
-                                <th>Description</th>
-                                <th>Category</th>
-                                <th>Status</th>
-                                <th>Assigned Staff</th>
-                                <th>Admin Remarks</th>
-                                <th>Staff Remarks</th>
-                                <th>Last Updated</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php while ($row = mysqli_fetch_assoc($ideas_result)): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($row['title']); ?></td>
-                                    <td class="desc-cell"><?php echo htmlspecialchars(mb_substr($row['description'], 0, 80)); ?><?php echo mb_strlen($row['description']) > 80 ? '…' : ''; ?></td>
-                                    <td><?php echo htmlspecialchars($row['category']); ?></td>
-                                    <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $row['status'])); ?>"><?php echo htmlspecialchars($row['status']); ?></span></td>
-                                    <td><?php echo htmlspecialchars($row['assigned_to'] ?? '—'); ?></td>
-                                    <td><?php echo htmlspecialchars(mb_substr($row['admin_remarks'] ?? '', 0, 40)) . ((isset($row['admin_remarks']) && mb_strlen($row['admin_remarks']) > 40) ? '…' : ''); ?></td>
-                                    <td><?php echo htmlspecialchars(mb_substr($row['staff_remarks'] ?? '', 0, 40)) . ((isset($row['staff_remarks']) && mb_strlen($row['staff_remarks']) > 40) ? '…' : ''); ?></td>
-                                    <td>
-                                        <?php
-                                        $ts = $row['updated_at'] ?? $row['created_at'];
-                                        echo $ts ? date('M j, Y', strtotime($ts)) : '—';
-                                        ?>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        </tbody>
-                    </table>
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 class="page-title">My Solutions</h1>
+                <div class="user-profile">
+                    <div class="user-info">
+                        <span class="user-name"><?php echo htmlspecialchars($user_name); ?></span>
+                        <span class="user-role">Student</span>
+                    </div>
                 </div>
-            <?php endif; ?>
-        </div>
-    </main>
+            </header>
 
-    <footer class="footer">
-        <p>&copy; <?php echo date('Y'); ?> Campus Green Innovation Portal</p>
-    </footer>
-    <script src="assets/js/script.js"></script>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">All Submitted Solutions</h2>
+                </div>
+
+                <?php if (mysqli_num_rows($ideas_result) === 0): ?>
+                    <p class="empty-state">You haven't submitted any solutions yet. <a href="student_problems.php" style="color: var(--primary-color);">View problems and submit your first solution</a>.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Problem</th>
+                                    <th>My Solution (summary)</th>
+                                    <th>Status</th>
+                                    <th>Assigned Staff</th>
+                                    <th>Remarks</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php while ($row = mysqli_fetch_assoc($ideas_result)): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($row['problem_title'] ?? $row['title']); ?></td>
+                                        <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?php echo htmlspecialchars($row['description']); ?>">
+                                            <?php echo htmlspecialchars($row['description']); ?>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-<?php echo strtolower(str_replace(' ', '', $row['status'])); ?>">
+                                                <?php echo htmlspecialchars($row['status']); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <?php 
+                                            $staff_name = $row['assigned_staff_name'] ?? $row['assigned_to'];
+                                            echo $staff_name ? htmlspecialchars($staff_name) : '—'; 
+                                            ?>
+                                        </td>
+                                        <td style="max-width: 250px;">
+                                            <?php 
+                                            if ($row['status'] === 'Rejected') {
+                                                echo '<span style="color: var(--status-rejected-text); font-size: 0.9em;">' . htmlspecialchars($row['admin_remarks'] ?? '') . '</span>';
+                                            } elseif (!empty($row['staff_remarks'])) {
+                                                echo '<span style="font-size: 0.9em;">' . htmlspecialchars($row['staff_remarks']) . '</span>';
+                                            } else {
+                                                echo '—';
+                                            }
+                                            ?>
+                                        </td>
+                                        <td>
+                                            <?php
+                                            $ts = $row['updated_at'] ?? $row['created_at'];
+                                            echo $ts ? date('M d, Y', strtotime($ts)) : '—';
+                                            ?>
+                                        </td>
+                                        <td>
+                                            <a href="view_idea.php?id=<?php echo (int) $row['id']; ?>" class="btn btn-sm btn-secondary">Details</a>
+                                        </td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </main>
+    </div>
 </body>
 </html>

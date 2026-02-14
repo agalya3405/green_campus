@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS ideas (
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     category VARCHAR(50) NOT NULL,
-    status ENUM('Pending', 'Approved', 'In Progress', 'Completed') NOT NULL DEFAULT 'Pending',
+    status ENUM('Pending', 'Approved', 'Rejected', 'In Progress', 'Completed') NOT NULL DEFAULT 'Pending',
     assigned_to VARCHAR(100) DEFAULT NULL,
     assigned_staff_id INT DEFAULT NULL,
     staff_remarks TEXT DEFAULT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS ideas (
     FOREIGN KEY (assigned_staff_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Index for faster lookups (drop first so script can be re-run without error)
+-- Index for faster lookups (drop first so script can be re-run without duplicate key error)
 DROP INDEX IF EXISTS idx_ideas_user_id ON ideas;
 DROP INDEX IF EXISTS idx_ideas_status ON ideas;
 DROP INDEX IF EXISTS idx_ideas_assigned_staff_id ON ideas;

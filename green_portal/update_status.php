@@ -2,29 +2,30 @@
 session_start();
 require_once 'config/db.php';
 
+// Auth Check
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-$allowed_roles = ['admin', 'staff'];
-if (!in_array($_SESSION['role'], $allowed_roles)) {
+$user_id = (int) $_SESSION['user_id'];
+$role = $_SESSION['role'];
+$user_name = $_SESSION['user_name'];
+
+// Allowed Roles
+if (!in_array($role, ['admin', 'staff'])) {
     header('Location: dashboard.php');
     exit;
 }
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-$staff_redirect = 'staff_dashboard.php';
-$admin_redirect = 'admin/admin_dashboard.php';
 if ($id <= 0) {
-    header('Location: ' . ($_SESSION['role'] === 'admin' ? $admin_redirect : $staff_redirect));
+    header('Location: ' . ($role === 'admin' ? 'admin/admin_dashboard.php' : 'staff_dashboard.php'));
     exit;
 }
 
-$user_id = (int) $_SESSION['user_id'];
-$role = $_SESSION['role'];
-
-$stmt = mysqli_prepare($conn, "SELECT id, title, status, staff_remarks, assigned_staff_id FROM ideas WHERE id = ?");
+// Fetch Idea (include user_id for points when marking Completed)
+$stmt = mysqli_prepare($conn, "SELECT id, title, status, staff_remarks, assigned_staff_id, user_id FROM ideas WHERE id = ?");
 mysqli_stmt_bind_param($stmt, "i", $id);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
@@ -32,13 +33,13 @@ $idea = mysqli_fetch_assoc($result);
 mysqli_stmt_close($stmt);
 
 if (!$idea) {
-    header('Location: ' . ($role === 'admin' ? $admin_redirect : $staff_redirect));
+    header('Location: ' . ($role === 'admin' ? 'admin/admin_dashboard.php' : 'staff_dashboard.php'));
     exit;
 }
 
-// Staff can only update ideas assigned to them
-if ($role === 'staff' && (int) $idea['assigned_staff_id'] !== $user_id) {
-    header('Location: staff_dashboard.php');
+// Strict Check for Staff: Must be assigned to this idea
+if ($role === 'staff' && (int)$idea['assigned_staff_id'] !== $user_id) {
+    header('Location: staff_dashboard.php?msg=' . urlencode('You are not authorized to update this idea.'));
     exit;
 }
 
@@ -48,106 +49,153 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? '';
     $remarks = trim($_POST['staff_remarks'] ?? '');
 
+    // Validation
     if ($role === 'staff') {
-        $allowed = ['In Progress', 'Completed'];
-        if (!in_array($status, $allowed)) {
-            $error = 'Invalid status. Staff can only set In Progress or Completed.';
-        } else {
-            $stmt = mysqli_prepare($conn, "UPDATE ideas SET status = ?, staff_remarks = ? WHERE id = ?");
-            mysqli_stmt_bind_param($stmt, "ssi", $status, $remarks, $id);
-            if (mysqli_stmt_execute($stmt)) {
-                mysqli_stmt_close($stmt);
-                header('Location: staff_dashboard.php?success=1&msg=' . urlencode('Status and remarks updated successfully.'));
-                exit;
-            }
-            $error = 'Failed to update. Please try again.';
-            if (isset($stmt)) mysqli_stmt_close($stmt);
+        // Staff can ONLY set "In Progress" or "Completed"
+        if (!in_array($status, ['In Progress', 'Completed'])) {
+            $error = 'Invalid status. You can only set In Progress or Completed.';
         }
-    } else {
-        $allowed = ['Pending', 'Approved', 'In Progress', 'Completed'];
-        if (!in_array($status, $allowed)) {
-            $error = 'Invalid status.';
+        
+        // Enforce strict workflow: Approved → In Progress → Completed
+        if ($status === 'In Progress' && $idea['status'] !== 'Approved') {
+            $error = 'You can only start work on approved ideas.';
+        }
+        
+        if ($status === 'Completed' && $idea['status'] !== 'In Progress') {
+            $error = 'You must start work before marking it as completed.';
+        }
+        
+        // Remarks are REQUIRED when marking as Completed
+        if ($status === 'Completed' && empty($remarks)) {
+            $error = 'Staff remarks are required when marking task as completed.';
+        }
+    }
+
+    if (!$error) {
+        $was_completed = ($idea['status'] === 'Completed');
+        $idea_user_id = isset($idea['user_id']) ? (int) $idea['user_id'] : 0;
+
+        $has_updated_at = (mysqli_fetch_assoc(mysqli_query($conn, "SHOW COLUMNS FROM ideas LIKE 'updated_at'")) !== null);
+        $set_updated = $has_updated_at ? ', updated_at = NOW()' : '';
+        if ($role === 'staff') {
+            $stmt = mysqli_prepare($conn, "UPDATE ideas SET status = ?, staff_remarks = ?$set_updated WHERE id = ?");
+            mysqli_stmt_bind_param($stmt, "ssi", $status, $remarks, $id);
         } else {
-            $stmt = mysqli_prepare($conn, "UPDATE ideas SET status = ? WHERE id = ?");
+            $stmt = mysqli_prepare($conn, "UPDATE ideas SET status = ?$set_updated WHERE id = ?");
             mysqli_stmt_bind_param($stmt, "si", $status, $id);
-            if (mysqli_stmt_execute($stmt)) {
-                mysqli_stmt_close($stmt);
-                header('Location: admin/admin_dashboard.php?success=1&msg=' . urlencode('Status updated successfully.'));
-                exit;
+        }
+
+        if (mysqli_stmt_execute($stmt)) {
+            mysqli_stmt_close($stmt);
+            
+            // +50 points for student when idea is first marked Completed
+            if ($status === 'Completed' && !$was_completed && $idea_user_id) {
+                // Update user points
+                mysqli_query($conn, "UPDATE users SET points = COALESCE(points, 0) + 50 WHERE id = $idea_user_id");
+                
+                // Record in rewards table
+                $reward_stmt = mysqli_prepare($conn, "INSERT INTO rewards (student_id, points, reason) VALUES (?, 50, ?)");
+                if ($reward_stmt) {
+                    $reason = 'Implementation Completed';
+                    mysqli_stmt_bind_param($reward_stmt, "is", $idea_user_id, $reason);
+                    mysqli_stmt_execute($reward_stmt);
+                    mysqli_stmt_close($reward_stmt);
+                }
             }
-            $error = 'Failed to update status.';
+            
+            $redirect = ($role === 'admin') ? 'admin/admin_dashboard.php' : 'staff_dashboard.php';
+            header('Location: ' . $redirect . '?success=1&msg=' . urlencode('Status updated successfully.'));
+            exit;
+        } else {
+            $error = 'Database error: ' . mysqli_error($conn);
             if (isset($stmt)) mysqli_stmt_close($stmt);
         }
     }
 }
-
-$back_url = $role === 'admin' ? $admin_redirect : $staff_redirect;
-$is_staff = ($role === 'staff');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Update Status - Campus Green Innovation Portal</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">Campus Green Innovation Portal</div>
-        <div class="nav-links">
-            <?php if ($role === 'admin'): ?>
-                <a href="admin/admin_dashboard.php">Admin Dashboard</a>
-            <?php else: ?>
-                <a href="staff_dashboard.php" class="active">Staff Dashboard</a>
-            <?php endif; ?>
-            <span class="nav-user"><?php echo htmlspecialchars($_SESSION['user_name']); ?><?php echo $role === 'staff' ? ' (Staff)' : ''; ?></span>
-            <a href="logout.php">Logout</a>
-        </div>
-    </nav>
-
-    <main class="container">
-        <h1>Update Idea Status</h1>
-        <p class="subtitle"><?php echo $is_staff ? 'Set status to In Progress or Completed and add remarks.' : 'Change the status of this idea.'; ?></p>
-
-        <?php if ($error): ?>
-            <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-
-        <div class="card">
-            <p><strong>Idea:</strong> <?php echo htmlspecialchars($idea['title']); ?></p>
-            <form method="POST" action="update_status.php?id=<?php echo (int) $id; ?>">
-                <div class="form-group">
-                    <label for="status">Status</label>
-                    <select id="status" name="status" required>
-                        <?php if ($is_staff): ?>
-                            <option value="In Progress" <?php echo ($idea['status'] === 'In Progress') ? 'selected' : ''; ?>>In Progress</option>
-                            <option value="Completed" <?php echo ($idea['status'] === 'Completed') ? 'selected' : ''; ?>>Completed</option>
-                        <?php else: ?>
-                            <option value="Pending" <?php echo ($idea['status'] === 'Pending') ? 'selected' : ''; ?>>Pending</option>
-                            <option value="Approved" <?php echo ($idea['status'] === 'Approved') ? 'selected' : ''; ?>>Approved</option>
-                            <option value="In Progress" <?php echo ($idea['status'] === 'In Progress') ? 'selected' : ''; ?>>In Progress</option>
-                            <option value="Completed" <?php echo ($idea['status'] === 'Completed') ? 'selected' : ''; ?>>Completed</option>
-                        <?php endif; ?>
-                    </select>
-                </div>
-                <?php if ($is_staff): ?>
-                <div class="form-group">
-                    <label for="staff_remarks">Remarks / Feedback</label>
-                    <textarea id="staff_remarks" name="staff_remarks" rows="4" placeholder="Add your remarks or progress feedback..."><?php echo htmlspecialchars($idea['staff_remarks'] ?? ''); ?></textarea>
-                </div>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="brand-name">Green Campus</span>
+            </div>
+            <nav class="sidebar-nav">
+                <?php if ($role === 'admin'): ?>
+                    <a href="admin/admin_dashboard.php" class="nav-item">Dashboard</a>
+                    <a href="admin/admin_dashboard.php" class="nav-item">Manage Ideas</a>
+                <?php else: ?>
+                    <a href="staff_dashboard.php" class="nav-item active">Dashboard</a>
+                    <a href="staff_dashboard.php" class="nav-item">Assigned Ideas</a>
                 <?php endif; ?>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary"><?php echo $is_staff ? 'Update Status & Remarks' : 'Update Status'; ?></button>
-                    <a href="<?php echo htmlspecialchars($back_url); ?>" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
-        </div>
-    </main>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+            </div>
+        </aside>
 
-    <footer class="footer">
-        <p>&copy; <?php echo date('Y'); ?> Campus Green Innovation Portal</p>
-    </footer>
-    <script src="assets/js/script.js"></script>
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 class="page-title">Update Status</h1>
+                <div class="user-profile">
+                    <div class="user-info">
+                        <span class="user-name"><?php echo htmlspecialchars($user_name); ?></span>
+                        <span class="user-role"><?php echo ucfirst($role); ?></span>
+                    </div>
+                </div>
+            </header>
+
+            <?php if ($error): ?>
+                <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Updating: <?php echo htmlspecialchars($idea['title']); ?></h2>
+                </div>
+                
+                <form method="POST" action="update_status.php?id=<?php echo (int) $id; ?>">
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select id="status" name="status" class="form-control" required>
+                            <?php if ($role === 'staff'): ?>
+                                <option value="In Progress" <?php echo ($idea['status'] === 'In Progress') ? 'selected' : ''; ?>>In Progress</option>
+                                <option value="Completed" <?php echo ($idea['status'] === 'Completed') ? 'selected' : ''; ?>>Completed</option>
+                            <?php else: ?>
+                                <option value="Pending" <?php echo ($idea['status'] === 'Pending') ? 'selected' : ''; ?>>Pending</option>
+                                <option value="Approved" <?php echo ($idea['status'] === 'Approved') ? 'selected' : ''; ?>>Approved</option>
+                                <option value="In Progress" <?php echo ($idea['status'] === 'In Progress') ? 'selected' : ''; ?>>In Progress</option>
+                                <option value="Completed" <?php echo ($idea['status'] === 'Completed') ? 'selected' : ''; ?>>Completed</option>
+                                <option value="Rejected" <?php echo ($idea['status'] === 'Rejected') ? 'selected' : ''; ?>>Rejected</option>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+
+                    <?php if ($role === 'staff'): ?>
+                    <div class="form-group">
+                        <label for="staff_remarks">Staff Remarks <?php if ($idea['status'] === 'In Progress'): ?><span style="color: red;">*</span><?php endif; ?></label>
+                        <textarea id="staff_remarks" name="staff_remarks" class="form-control" rows="5" placeholder="Enter progress details..." <?php if ($idea['status'] === 'In Progress'): ?>required<?php endif; ?>><?php echo htmlspecialchars($idea['staff_remarks'] ?? ''); ?></textarea>
+                        <?php if ($idea['status'] === 'In Progress'): ?>
+                            <small class="form-text text-muted">Remarks are required when marking task as completed.</small>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Update Status</button>
+                        <a href="<?php echo ($role === 'admin' ? 'admin/admin_dashboard.php' : 'staff_dashboard.php'); ?>" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
 </body>
 </html>

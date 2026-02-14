@@ -4,11 +4,11 @@ require_once 'config/db.php';
 
 if (isset($_SESSION['user_id'])) {
     if ($_SESSION['role'] === 'admin') {
-        header('Location: admin/admin_dashboard.php');
+        header('Location: admin_dashboard.php');
     } elseif ($_SESSION['role'] === 'staff') {
         header('Location: staff_dashboard.php');
     } else {
-        header('Location: dashboard.php');
+        header('Location: student_dashboard.php');
     }
     exit;
 }
@@ -18,8 +18,14 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
+    $login_as = $_POST['role'] ?? '';
 
-    if (empty($email) || empty($password)) {
+    $allowed_roles = ['student', 'staff', 'admin'];
+    if (!in_array($login_as, $allowed_roles, true)) {
+        $login_as = '';
+    }
+
+    if (empty($email) || empty($password) || empty($login_as)) {
         $error = 'Please fill in all fields.';
     } else {
         $stmt = mysqli_prepare($conn, "SELECT id, name, email, password, role FROM users WHERE email = ?");
@@ -28,24 +34,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = mysqli_stmt_get_result($stmt);
 
         if ($row = mysqli_fetch_assoc($result)) {
-            if (password_verify($password, $row['password'])) {
+            if ($row['role'] !== $login_as) {
+                $error = 'Invalid role selected for this account.';
+            } elseif (password_verify($password, $row['password'])) {
                 $_SESSION['user_id'] = $row['id'];
                 $_SESSION['user_name'] = $row['name'];
                 $_SESSION['user_email'] = $row['email'];
                 $_SESSION['role'] = $row['role'];
+
                 mysqli_stmt_close($stmt);
+
                 if ($row['role'] === 'admin') {
-                    header('Location: admin/admin_dashboard.php');
+                    header('Location: admin_dashboard.php');
                 } elseif ($row['role'] === 'staff') {
                     header('Location: staff_dashboard.php');
                 } else {
-                    header('Location: dashboard.php');
+                    header('Location: student_dashboard.php');
                 }
                 exit;
             }
         }
-        $error = 'Invalid email or password.';
-        if (isset($stmt)) mysqli_stmt_close($stmt);
+        if (!$error) {
+            $error = 'Invalid email or password.';
+        }
+        if (isset($stmt) && $stmt) mysqli_stmt_close($stmt);
     }
 }
 ?>
@@ -56,40 +68,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Campus Green Innovation Portal</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-brand">Campus Green Innovation Portal</div>
-        <div class="nav-links">
-            <a href="index.php">Home</a>
-            <a href="login.php" class="active">Login</a>
-            <a href="register.php">Register</a>
-        </div>
-    </nav>
+<body class="auth-layout">
+    <div class="auth-card">
+        <div class="auth-logo">🌿</div>
+        <h1 class="auth-title">Green Campus<br>Innovation Portal</h1>
+        
+        <?php if ($error): ?>
+            <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+        <?php if (isset($_GET['registered'])): ?>
+            <div class="alert alert-success">Registration successful. Please login.</div>
+        <?php endif; ?>
 
-    <main class="container auth-container">
-        <div class="auth-card">
-            <h1>Login</h1>
-            <?php if ($error): ?>
-                <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
-            <?php endif; ?>
-            <form method="POST" action="login.php">
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
-            <p class="auth-footer">Don't have an account? <a href="register.php">Register here</a></p>
-        </div>
-    </main>
-
-    <footer class="footer">
-        <p>&copy; <?php echo date('Y'); ?> Campus Green Innovation Portal</p>
-    </footer>
+        <form method="POST" action="login.php">
+            <div class="form-group">
+                <label for="role">Login As</label>
+                <select id="role" name="role" class="form-control" required>
+                    <option value="">— Select role —</option>
+                    <option value="student" <?php echo (($_POST['role'] ?? '') === 'student') ? 'selected' : ''; ?>>Student</option>
+                    <option value="staff" <?php echo (($_POST['role'] ?? '') === 'staff') ? 'selected' : ''; ?>>Staff</option>
+                    <option value="admin" <?php echo (($_POST['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" class="form-control" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" placeholder="student@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+        
+        <p style="margin-top: 1.5rem; color: #757575; font-size: 0.9rem;">
+            New to the portal? <a href="register.php" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">Create an account</a>
+        </p>
+    </div>
 </body>
 </html>

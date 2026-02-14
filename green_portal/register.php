@@ -60,58 +60,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Register - Campus Green Innovation Portal</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-brand">Campus Green Innovation Portal</div>
-        <div class="nav-links">
-            <a href="index.php">Home</a>
-            <a href="login.php">Login</a>
-            <a href="register.php" class="active">Register</a>
-        </div>
-    </nav>
+<body class="auth-layout">
+    <div class="auth-card">
+        <div class="auth-logo">🌿</div>
+        <h1 class="auth-title">Create Account</h1>
+        
+        <?php if ($error): ?>
+            <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
 
-    <main class="container auth-container">
-        <div class="auth-card">
-            <h1>Register</h1>
-            <?php if (isset($_GET['registered'])): ?>
-                <div class="alert alert-success">Registration successful. Please login.</div>
-            <?php endif; ?>
-            <?php if ($error): ?>
-                <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
-            <?php endif; ?>
-            <form method="POST" action="register.php">
-                <div class="form-group">
-                    <label for="name">Full Name</label>
-                    <input type="text" id="name" name="name" required value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>">
-                </div>
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required minlength="6">
-                </div>
-                <div class="form-group">
-                    <label for="confirm_password">Confirm Password</label>
-                    <input type="password" id="confirm_password" name="confirm_password" required>
-                </div>
-                <div class="form-group">
-                    <label for="role">Role</label>
-                    <select id="role" name="role">
-                        <option value="student" <?php echo (($_POST['role'] ?? '') === 'student') ? 'selected' : ''; ?>>Student</option>
-                        <option value="staff" <?php echo (($_POST['role'] ?? '') === 'staff') ? 'selected' : ''; ?>>Staff</option>
-                        <option value="admin" <?php echo (($_POST['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Admin</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Register</button>
-            </form>
-            <p class="auth-footer">Already have an account? <a href="login.php">Login here</a></p>
-        </div>
-    </main>
-
-    <footer class="footer">
-        <p>&copy; <?php echo date('Y'); ?> Campus Green Innovation Portal</p>
-    </footer>
+        <form method="POST" action="register.php">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" class="form-control" required value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" class="form-control" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="role">I am a...</label>
+                <select id="role" name="role" class="form-control">
+                    <option value="student" <?php echo (($_POST['role'] ?? '') === 'student') ? 'selected' : ''; ?>>Student</option>
+                    <option value="staff" <?php echo (($_POST['role'] ?? '') === 'staff') ? 'selected' : ''; ?>>Staff Member</option>
+                    <option value="admin" <?php echo (($_POST['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Administrator</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-control" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Register</button>
+        </form>
+        
+        <p style="margin-top: 1.5rem; color: #757575; font-size: 0.9rem;">
+            Already have an account? <a href="login.php" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">Sign In</a>
+        </p>
+    </div>
 </body>
 </html>
