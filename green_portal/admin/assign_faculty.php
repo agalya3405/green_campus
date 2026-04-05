@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
@@ -13,10 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $idea_id = isset($_POST['idea_id']) ? (int) $_POST['idea_id'] : 0;
-$staff_id = isset($_POST['staff_id']) ? (int) $_POST['staff_id'] : 0;
+$faculty_id = isset($_POST['faculty_id']) ? (int) $_POST['faculty_id'] : 0;
 
-if ($idea_id <= 0 || $staff_id <= 0) {
-    header("Location: approved_ideas.php?success=0&msg=" . urlencode("Invalid idea or staff."));
+if ($idea_id <= 0 || $faculty_id <= 0) {
+    header("Location: approved_ideas.php?success=0&msg=" . urlencode("Invalid idea or faculty."));
     exit();
 }
 
@@ -32,30 +33,30 @@ if (!mysqli_fetch_assoc($chk_res)) {
 }
 mysqli_stmt_close($chk);
 
-// Ensure staff exists and is staff role
-$staff_name = null;
-$st = mysqli_prepare($conn, "SELECT id, name FROM users WHERE id = ? AND role = 'staff' LIMIT 1");
-mysqli_stmt_bind_param($st, "i", $staff_id);
+// Ensure faculty exists and is faculty role
+$faculty_name = null;
+$st = mysqli_prepare($conn, "SELECT id, name FROM users WHERE id = ? AND role = 'faculty' LIMIT 1");
+mysqli_stmt_bind_param($st, "i", $faculty_id);
 mysqli_stmt_execute($st);
 $sr = mysqli_stmt_get_result($st);
 if ($row = mysqli_fetch_assoc($sr)) {
-    $staff_name = $row['name'];
+    $faculty_name = $row['name'];
 }
 mysqli_stmt_close($st);
 
-if (!$staff_name) {
-    header("Location: approved_ideas.php?success=0&msg=" . urlencode("Invalid staff."));
+if (!$faculty_name) {
+    header("Location: approved_ideas.php?success=0&msg=" . urlencode("Invalid faculty."));
     exit();
 }
 
-// Update idea: assigned_staff_id and assigned_to for display consistency
+// Update idea: assigned_faculty_id and assigned_to for display consistency
 $sql = "UPDATE ideas
-        SET assigned_staff_id = ?,
+        SET assigned_faculty_id = ?,
             assigned_to = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND status = 'Approved'";
 $stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, "isi", $staff_id, $staff_name, $idea_id);
+mysqli_stmt_bind_param($stmt, "isi", $faculty_id, $faculty_name, $idea_id);
 if (!mysqli_stmt_execute($stmt)) {
     mysqli_stmt_close($stmt);
     header("Location: approved_ideas.php?success=0&msg=" . urlencode("Update failed."));
@@ -63,5 +64,5 @@ if (!mysqli_stmt_execute($stmt)) {
 }
 mysqli_stmt_close($stmt);
 
-header("Location: approved_ideas.php?success=1&msg=" . urlencode("Staff assigned successfully."));
+header("Location: approved_ideas.php?success=1&msg=" . urlencode("Faculty assigned successfully."));
 exit();

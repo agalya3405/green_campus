@@ -1,13 +1,14 @@
 <?php
 // Admin dashboard entry point (requested name).
-session_start();
+require_once 'config/session.php';
+start_role_session('admin');
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 if ($_SESSION['role'] !== 'admin') {
-    if ($_SESSION['role'] === 'staff') {
-        header('Location: staff_dashboard.php');
+    if ($_SESSION['role'] === 'faculty') {
+        header('Location: faculty_dashboard.php');
     } else {
         header('Location: student_dashboard.php');
     }

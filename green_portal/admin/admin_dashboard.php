@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 // Role protection (mandatory)
@@ -45,7 +46,7 @@ $completed = (int) mysqli_fetch_row($r)[0];
     <link rel="stylesheet" href="../assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="admin-portal">
     <div class="dashboard-layout">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -57,13 +58,12 @@ $completed = (int) mysqli_fetch_row($r)[0];
                 <a href="manage_ideas.php" class="nav-item">Manage Ideas</a>
                 <a href="admin_manage_problems.php" class="nav-item">Manage Problem Statements</a>
                 <a href="approved_ideas.php" class="nav-item">Approved Ideas</a>
-                <a href="manage_staff.php" class="nav-item">Manage Staff</a>
+                <a href="manage_faculty.php" class="nav-item">Manage Faculty</a>
                 <a href="reports.php" class="nav-item">Reports</a>
-                <a href="../leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="../hall_of_fame.php" class="nav-item">Hall of Fame</a>
+                <a href="../leaderboard.php?role=admin" class="nav-item">Leaderboard</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="../logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="../logout.php?role=admin" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
@@ -108,8 +108,8 @@ $completed = (int) mysqli_fetch_row($r)[0];
                 </div>
                 <div style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
                     <a href="manage_ideas.php?filter=pending" class="btn btn-primary">Review Pending Ideas</a>
-                    <a href="manage_staff.php" class="btn btn-secondary">Manage Staff</a>
-                    <a href="../leaderboard.php" class="btn btn-secondary">View Leaderboard</a>
+                    <a href="manage_faculty.php" class="btn btn-secondary">Manage Faculty</a>
+                    <a href="../leaderboard.php?role=admin" class="btn btn-secondary">View Leaderboard</a>
                 </div>
             </div>
         </main>

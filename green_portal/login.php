@@ -1,17 +1,7 @@
 <?php
-session_start();
+require_once 'config/session.php';
+start_guest_session();
 require_once 'config/db.php';
-
-if (isset($_SESSION['user_id'])) {
-    if ($_SESSION['role'] === 'admin') {
-        header('Location: admin_dashboard.php');
-    } elseif ($_SESSION['role'] === 'staff') {
-        header('Location: staff_dashboard.php');
-    } else {
-        header('Location: student_dashboard.php');
-    }
-    exit;
-}
 
 $error = '';
 
@@ -20,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $login_as = $_POST['role'] ?? '';
 
-    $allowed_roles = ['student', 'staff', 'admin'];
+    $allowed_roles = ['student', 'faculty', 'admin'];
     if (!in_array($login_as, $allowed_roles, true)) {
         $login_as = '';
     }
@@ -37,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($row['role'] !== $login_as) {
                 $error = 'Invalid role selected for this account.';
             } elseif (password_verify($password, $row['password'])) {
+                switch_to_role_session($row['role']);
                 $_SESSION['user_id'] = $row['id'];
                 $_SESSION['user_name'] = $row['name'];
                 $_SESSION['user_email'] = $row['email'];
@@ -46,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($row['role'] === 'admin') {
                     header('Location: admin_dashboard.php');
-                } elseif ($row['role'] === 'staff') {
-                    header('Location: staff_dashboard.php');
+                } elseif ($row['role'] === 'faculty') {
+                    header('Location: faculty_dashboard.php');
                 } else {
                     header('Location: student_dashboard.php');
                 }
@@ -88,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <select id="role" name="role" class="form-control" required>
                     <option value="">— Select role —</option>
                     <option value="student" <?php echo (($_POST['role'] ?? '') === 'student') ? 'selected' : ''; ?>>Student</option>
-                    <option value="staff" <?php echo (($_POST['role'] ?? '') === 'staff') ? 'selected' : ''; ?>>Staff</option>
+                    <option value="faculty" <?php echo (($_POST['role'] ?? '') === 'faculty') ? 'selected' : ''; ?>>Faculty</option>
                     <option value="admin" <?php echo (($_POST['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Admin</option>
                 </select>
             </div>

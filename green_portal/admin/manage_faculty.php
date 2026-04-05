@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 // Strict Role Check
@@ -10,13 +11,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 $user_name = $_SESSION['user_name'];
 
-// Fetch staff stats
+// Fetch faculty stats
 $query = "SELECT s.id, s.name, 
            COUNT(i.id) AS assigned_count, 
            SUM(CASE WHEN i.status='Completed' THEN 1 ELSE 0 END) AS completed_count 
     FROM users s 
-    LEFT JOIN ideas i ON s.id = i.assigned_staff_id 
-    WHERE s.role = 'staff' 
+    LEFT JOIN ideas i ON s.id = i.assigned_faculty_id 
+    WHERE s.role = 'faculty' 
     GROUP BY s.id
     ORDER BY s.name";
 
@@ -27,10 +28,10 @@ $result = mysqli_query($conn, $query);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Staff - Admin</title>
+    <title>Manage Faculty - Admin</title>
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
-<body>
+<body class="admin-portal">
     <div class="dashboard-layout">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -41,20 +42,19 @@ $result = mysqli_query($conn, $query);
                 <a href="admin_dashboard.php" class="nav-item">Dashboard</a>
                 <a href="manage_ideas.php" class="nav-item">Manage Ideas</a>
                 <a href="approved_ideas.php" class="nav-item">Approved Ideas</a>
-                <a href="manage_staff.php" class="nav-item active">Manage Staff</a>
+                <a href="manage_faculty.php" class="nav-item active">Manage Faculty</a>
                 <a href="reports.php" class="nav-item">Reports</a>
                 <a href="../leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="../hall_of_fame.php" class="nav-item">Hall of Fame</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="../logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="../logout.php?role=admin" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
-                <h1 class="page-title">Manage Staff</h1>
+                <h1 class="page-title">Manage Faculty</h1>
                 <div class="user-profile">
                     <span class="user-name"><?php echo htmlspecialchars($user_name); ?></span>
                     <span class="user-role">Administrator</span>
@@ -63,17 +63,17 @@ $result = mysqli_query($conn, $query);
 
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Staff Overview</h2>
+                    <h2 class="card-title">Faculty Overview</h2>
                 </div>
                 
                 <?php if (!$result || mysqli_num_rows($result) === 0): ?>
-                    <p class="empty-state">No staff members found.</p>
+                    <p class="empty-state">No faculty members found.</p>
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Staff Name</th>
+                                    <th>Faculty Name</th>
                                     <th>Total Assigned Ideas</th>
                                     <th>Completed Ideas</th>
                                 </tr>

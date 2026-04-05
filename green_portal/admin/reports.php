@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 // Strict Role Check
@@ -52,13 +53,12 @@ while ($row = mysqli_fetch_assoc($res)) {
                 <a href="admin_dashboard.php" class="nav-item">Dashboard</a>
                 <a href="manage_ideas.php" class="nav-item">Manage Ideas</a>
                 <a href="approved_ideas.php" class="nav-item">Approved Ideas</a>
-                <a href="manage_staff.php" class="nav-item">Manage Staff</a>
+                <a href="manage_faculty.php" class="nav-item">Manage Faculty</a>
                 <a href="reports.php" class="nav-item active">Reports</a>
                 <a href="../leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="../hall_of_fame.php" class="nav-item">Hall of Fame</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="../logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="../logout.php?role=admin" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 

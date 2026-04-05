@@ -1,5 +1,11 @@
 <?php
-session_start();
+require_once 'config/session.php';
+$requested_role = resolve_role_from_request(['admin', 'faculty', 'student'], 'guest');
+if ($requested_role === 'guest') {
+    start_guest_session();
+} else {
+    start_role_session($requested_role);
+}
 require_once 'config/db.php';
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;

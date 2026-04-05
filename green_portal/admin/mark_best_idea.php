@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {

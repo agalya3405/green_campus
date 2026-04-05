@@ -1,5 +1,7 @@
 <?php
-session_start();
+require_once 'config/session.php';
+$requested_role = resolve_role_from_request(['admin', 'faculty', 'student'], 'student');
+start_role_session($requested_role);
 require_once 'config/db.php';
 
 // Auth Check
@@ -18,7 +20,11 @@ $user_id = (int) $_SESSION['user_id'];
 $role = $_SESSION['role'];
 
 // Fetch Idea
-$stmt = mysqli_prepare($conn, "SELECT id, title, description, category, status, assigned_staff_id FROM ideas WHERE id = ?");
+$sql = "SELECT i.*, u.name AS student_name 
+        FROM ideas i 
+        JOIN users u ON i.user_id = u.id 
+        WHERE i.id = ?";
+$stmt = mysqli_prepare($conn, $sql);
 mysqli_stmt_bind_param($stmt, "i", $id);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
@@ -31,8 +37,8 @@ if (!$idea) {
 }
 
 // Access Control
-if ($role === 'staff' && (int)$idea['assigned_staff_id'] !== $user_id) {
-    header('Location: staff_dashboard.php');
+if ($role === 'faculty' && (int)$idea['assigned_faculty_id'] !== $user_id) {
+    header('Location: faculty_dashboard.php');
     exit;
 } elseif ($role === 'student' && (int)$idea['user_id'] !== $user_id) {
      // Wait, student user_id is not selected above. Let's fix query if needed. 
@@ -43,7 +49,7 @@ if ($role === 'staff' && (int)$idea['assigned_staff_id'] !== $user_id) {
 
 // Determine Back Link
 $back_link = 'dashboard.php';
-if ($role === 'staff') $back_link = 'staff_dashboard.php';
+if ($role === 'faculty') $back_link = 'faculty_dashboard.php';
 if ($role === 'admin') $back_link = 'admin/admin_dashboard.php';
 
 ?>
@@ -63,8 +69,8 @@ if ($role === 'admin') $back_link = 'admin/admin_dashboard.php';
                 <span class="brand-name">Green Campus</span>
             </div>
             <nav class="sidebar-nav">
-                <?php if ($role === 'staff'): ?>
-                    <a href="staff_dashboard.php" class="nav-item">Dashboard</a>
+                <?php if ($role === 'faculty'): ?>
+                    <a href="faculty_dashboard.php" class="nav-item">Dashboard</a>
                 <?php elseif ($role === 'admin'): ?>
                     <a href="admin/admin_dashboard.php" class="nav-item">Dashboard</a>
                 <?php else: ?>
@@ -72,7 +78,7 @@ if ($role === 'admin') $back_link = 'admin/admin_dashboard.php';
                 <?php endif; ?>
             </nav>
             <div class="sidebar-footer">
-                <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="logout.php?role=<?php echo urlencode($role); ?>" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
@@ -105,9 +111,28 @@ if ($role === 'admin') $back_link = 'admin/admin_dashboard.php';
                     </p>
                 </div>
 
+                <div class="structured-view" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; border-top: 1px solid #eee; pt-2 text-decoration: none;">
+                    <div class="col">
+                        <p><strong>Submitted by:</strong> <?php echo htmlspecialchars($idea['student_name']); ?></p>
+                        <p><strong>Progress:</strong> <?php echo (int)$idea['progress_percentage']; ?>%</p>
+                        <p><strong>Current Status:</strong> <?php echo htmlspecialchars($idea['status']); ?></p>
+                    </div>
+                    <div class="col">
+                        <h4 style="margin-bottom: 1rem;">Review History</h4>
+                        <div class="review-status-list" style="font-size: 0.9rem;">
+                            <p><strong>Review 1:</strong> <?php echo htmlspecialchars($idea['review1_status']); ?> 
+                               <br><small><?php echo htmlspecialchars($idea['review1_remarks'] ?? 'No remarks'); ?></small></p>
+                            <p><strong>Review 2:</strong> <?php echo htmlspecialchars($idea['review2_status']); ?>
+                               <br><small><?php echo htmlspecialchars($idea['review2_remarks'] ?? 'No remarks'); ?></small></p>
+                            <p><strong>Final Review:</strong> <?php echo htmlspecialchars($idea['final_review_status']); ?>
+                               <br><small><?php echo htmlspecialchars($idea['final_review_remarks'] ?? 'No remarks'); ?></small></p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-actions">
-                    <?php if ($role === 'staff'): ?>
-                         <a href="update_status.php?id=<?php echo (int) $id; ?>" class="btn btn-primary">Update Status</a>
+                    <?php if ($role === 'faculty'): ?>
+                         <a href="update_status.php?id=<?php echo (int) $id; ?>&role=<?php echo urlencode($role); ?>" class="btn btn-primary">Update Status</a>
                     <?php endif; ?>
                     <a href="<?php echo htmlspecialchars($back_link); ?>" class="btn btn-secondary">Back</a>
                 </div>

@@ -35,6 +35,34 @@ if ($checkProblemCol && mysqli_num_rows($checkProblemCol) === 0) {
     @mysqli_query($conn, "ALTER TABLE ideas ADD COLUMN problem_id INT NULL AFTER user_id");
 }
 
+// 2b) Ensure all required columns exist on ideas table
+$requiredIdeasCols = [
+    'assigned_faculty_id' => 'INT DEFAULT NULL',
+    'faculty_remarks'     => 'TEXT DEFAULT NULL',
+    'admin_remarks'       => 'TEXT DEFAULT NULL',
+    'progress_percentage' => 'INT DEFAULT 0',
+    'review1_status'      => "VARCHAR(20) DEFAULT 'Pending'",
+    'review1_remarks'     => 'TEXT',
+    'review2_status'      => "VARCHAR(20) DEFAULT 'Pending'",
+    'review2_remarks'     => 'TEXT',
+    'final_review_status' => "VARCHAR(20) DEFAULT 'Pending'",
+    'final_review_remarks'=> 'TEXT',
+    'review3_status'      => "VARCHAR(20) DEFAULT 'Pending'",
+    'review3_remarks'     => 'TEXT',
+];
+foreach ($requiredIdeasCols as $colName => $colDef) {
+    $chk = mysqli_query($conn, "SHOW COLUMNS FROM ideas LIKE '$colName'");
+    if ($chk && mysqli_num_rows($chk) === 0) {
+        @mysqli_query($conn, "ALTER TABLE ideas ADD COLUMN $colName $colDef");
+    }
+}
+
+// 2c) Ensure users.points column exists for reward system
+$chkPts = mysqli_query($conn, "SHOW COLUMNS FROM users LIKE 'points'");
+if ($chkPts && mysqli_num_rows($chkPts) === 0) {
+    @mysqli_query($conn, "ALTER TABLE users ADD COLUMN points INT DEFAULT 0");
+}
+
 // 3) Seed default problems if table is empty
 $resProblemsCount = mysqli_query($conn, "SELECT COUNT(*) AS c FROM problems");
 if ($resProblemsCount) {

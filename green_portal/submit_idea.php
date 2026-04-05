@@ -1,13 +1,14 @@
 <?php
-session_start();
+require_once 'config/session.php';
+start_role_session('student');
 require_once 'config/db.php';
 
 // Students only
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
         header('Location: admin/admin_dashboard.php');
-    } elseif (isset($_SESSION['role']) && $_SESSION['role'] === 'staff') {
-        header('Location: staff_dashboard.php');
+    } elseif (isset($_SESSION['role']) && $_SESSION['role'] === 'faculty') {
+        header('Location: faculty_dashboard.php');
     } else {
         header('Location: login.php');
     }
@@ -91,11 +92,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="student_problems.php" class="nav-item">View Problems</a>
                 <a href="submit_idea.php" class="nav-item active">Submit Solution</a>
                 <a href="view_ideas.php" class="nav-item">My Solutions</a>
-                <a href="leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="hall_of_fame.php" class="nav-item">Hall of Fame</a>
+                <a href="leaderboard.php?role=student" class="nav-item">Leaderboard</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="logout.php?role=student" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 

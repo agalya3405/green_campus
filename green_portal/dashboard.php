@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once 'config/session.php';
+start_role_session('student');
 require_once 'config/db.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -10,9 +11,39 @@ if ($_SESSION['role'] === 'admin') {
     header('Location: admin/admin_dashboard.php');
     exit;
 }
-if ($_SESSION['role'] === 'staff') {
-    header('Location: staff_dashboard.php');
+if ($_SESSION['role'] === 'faculty') {
+    header('Location: faculty_dashboard.php');
     exit;
+}
+
+// Handle Progress Update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_progress'])) {
+    $idea_id = (int)$_POST['idea_id'];
+    $new_progress = (int)$_POST['progress_percentage'];
+    
+    // Fetch current progress
+    $check_stmt = mysqli_prepare($conn, "SELECT progress_percentage FROM ideas WHERE id = ? AND user_id = ?");
+    mysqli_stmt_bind_param($check_stmt, "ii", $idea_id, $user_id);
+    mysqli_stmt_execute($check_stmt);
+    $check_res = mysqli_stmt_get_result($check_stmt);
+    $current_idea = mysqli_fetch_assoc($check_res);
+    
+    if ($current_idea) {
+        if ($new_progress < 0 || $new_progress > 100) {
+            $error = "Progress must be between 0 and 100.";
+        } elseif ($new_progress < $current_idea['progress_percentage']) {
+            $error = "Progress percentage cannot be reduced.";
+        } else {
+            $upd_stmt = mysqli_prepare($conn, "UPDATE ideas SET progress_percentage = ? WHERE id = ? AND user_id = ?");
+            mysqli_stmt_bind_param($upd_stmt, "iii", $new_progress, $idea_id, $user_id);
+            if (mysqli_stmt_execute($upd_stmt)) {
+                header("Location: dashboard.php?success=1&msg=Progress updated successfully");
+                exit;
+            } else {
+                $error = "Database error: " . mysqli_error($conn);
+            }
+        }
+    }
 }
 
 $user_id = (int) $_SESSION['user_id'];
@@ -25,14 +56,14 @@ if ($r) {
         $cols[] = $row['Field'];
     }
 }
-$sel = "i.id, i.title, i.description, i.category, i.status, i.assigned_to, i.created_at, s.name AS assigned_staff_name";
-if (in_array('staff_remarks', $cols)) $sel .= ", i.staff_remarks";
+$sel = "i.id, i.title, i.description, i.category, i.status, i.assigned_to, i.created_at, s.name AS assigned_faculty_name";
+if (in_array('faculty_remarks', $cols)) $sel .= ", i.faculty_remarks";
 if (in_array('admin_remarks', $cols)) $sel .= ", i.admin_remarks";
 if (in_array('updated_at', $cols)) $sel .= ", i.updated_at";
 
 $stmt = mysqli_prepare(
     $conn,
-    "SELECT $sel FROM ideas i LEFT JOIN users s ON i.assigned_staff_id = s.id WHERE i.user_id = ? ORDER BY i.created_at DESC"
+    "SELECT $sel FROM ideas i LEFT JOIN users s ON i.assigned_faculty_id = s.id WHERE i.user_id = ? ORDER BY i.created_at DESC"
 );
 mysqli_stmt_bind_param($stmt, "i", $user_id);
 mysqli_stmt_execute($stmt);
@@ -40,6 +71,7 @@ $ideas_result = mysqli_stmt_get_result($stmt);
 
 $success = $_GET['success'] ?? '';
 $msg = $_GET['msg'] ?? '';
+$error = $error ?? '';
 
 // Group ideas
 $ideas_by_status = [
@@ -101,11 +133,11 @@ if (in_array('points', $ucols)) {
                 <a href="student_problems.php" class="nav-item">View Problems</a>
                 <a href="submit_idea.php" class="nav-item">Submit Solution</a>
                 <a href="view_ideas.php" class="nav-item">My Solutions</a>
-                <a href="leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="hall_of_fame.php" class="nav-item">Hall of Fame</a>
+                <a href="student_reviews.php" class="nav-item">Reviews</a>
+                <a href="leaderboard.php?role=student" class="nav-item">Leaderboard</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="logout.php?role=student" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
@@ -124,6 +156,9 @@ if (in_array('points', $ucols)) {
             <?php if ($success === '1' && $msg): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div>
             <?php endif; ?>
+            <?php if ($error): ?>
+                <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                 <div class="card" style="text-align: center; padding: 1.25rem;">
@@ -135,7 +170,7 @@ if (in_array('points', $ucols)) {
                     <p style="font-size: 2rem; font-weight: 700; color: var(--primary-color); margin: 0;">#<?php echo $user_rank ?: '—'; ?></p>
                 </div>
                 <div class="card" style="display: flex; align-items: center; justify-content: center; padding: 1.25rem;">
-                    <a href="leaderboard.php" class="btn btn-primary">View Leaderboard</a>
+                    <a href="leaderboard.php?role=student" class="btn btn-primary">View Leaderboard</a>
                 </div>
             </div>
 
@@ -167,9 +202,9 @@ if (in_array('points', $ucols)) {
                         echo '<tr>';
                         echo '<td><strong>' . htmlspecialchars($row['title']) . '</strong></td>';
                         
-                        $staff_name = $row['assigned_staff_name'] ?? $row['assigned_to'];
-                        $staff_display = $staff_name ? '<span class="staff-badge">' . htmlspecialchars($staff_name) . '</span>' : '—';
-                        echo '<td>' . $staff_display . '</td>';
+                        $faculty_name = $row['assigned_faculty_name'] ?? $row['assigned_to'];
+                        $faculty_display = $faculty_name ? '<span class="faculty-badge">' . htmlspecialchars($faculty_name) . '</span>' : '—';
+                        echo '<td>' . $faculty_display . '</td>';
                         
                         $badge_class = 'badge-' . strtolower(str_replace(' ', '', $row['status']));
                         echo '<td><span class="badge ' . $badge_class . '">' . htmlspecialchars($row['status']) . '</span></td>';
@@ -177,15 +212,15 @@ if (in_array('points', $ucols)) {
                         $remarks = '';
                         if ($row['status'] === 'Rejected' && !empty($row['admin_remarks'])) {
                             $remarks = '<span style="color: var(--status-rejected-text);">' . htmlspecialchars($row['admin_remarks']) . '</span>';
-                        } elseif (!empty($row['staff_remarks'])) {
-                            $remarks = htmlspecialchars($row['staff_remarks']);
+                        } elseif (!empty($row['faculty_remarks'])) {
+                            $remarks = htmlspecialchars($row['faculty_remarks']);
                         } else {
                             $remarks = '<span style="color: var(--text-muted);">—</span>';
                         }
                         echo '<td>' . $remarks . '</td>';
                         if ($is_completed) {
                             $idea_id = (int)($row['id'] ?? 0);
-                            echo '<td><a href="certificate.php?id=' . $idea_id . '" class="btn btn-sm btn-secondary" target="_blank">Download Certificate</a></td>';
+                            echo '<td><a href="certificate.php?id=' . $idea_id . '&role=student" class="btn btn-sm btn-secondary" target="_blank">Download Certificate</a></td>';
                         }
                         echo '</tr>';
                     }
@@ -200,6 +235,52 @@ if (in_array('points', $ucols)) {
             render_section('Rejected', $ideas_by_status['Rejected']);
             render_section('Completed', $ideas_by_status['Completed']);
             ?>
+
+            <!-- Update Progress Section -->
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-header">
+                    <h3 class="card-title">Update Project Progress</h3>
+                </div>
+                <?php
+                // Re-fetch ideas to get current progress for the form
+                mysqli_stmt_execute($stmt);
+                $ideas_for_form = mysqli_stmt_get_result($stmt);
+                $has_in_progress = false;
+                ?>
+                <div class="card-body" style="padding: 1.5rem;">
+                    <form method="POST" action="dashboard.php" class="progress-form">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end;">
+                            <div class="form-group" style="margin: 0;">
+                                <label for="idea_id">Select Idea</label>
+                                <select name="idea_id" id="idea_id" class="form-control" required>
+                                    <option value="">-- Choose Idea --</option>
+                                    <?php while ($idea = mysqli_fetch_assoc($ideas_for_form)): ?>
+                                        <?php if ($idea['status'] === 'In Progress' || $idea['status'] === 'Approved'): ?>
+                                            <?php 
+                                            $has_in_progress = true; 
+                                            // Need to fetch current progress_percentage for display
+                                            $pid = (int)$idea['id'];
+                                            $p_res = mysqli_query($conn, "SELECT progress_percentage FROM ideas WHERE id = $pid");
+                                            $p_row = mysqli_fetch_assoc($p_res);
+                                            $curr_p = $p_row['progress_percentage'] ?? 0;
+                                            ?>
+                                            <option value="<?php echo $idea['id']; ?>"><?php echo htmlspecialchars($idea['title']); ?> (Current: <?php echo $curr_p; ?>%)</option>
+                                        <?php endif; ?>
+                                    <?php endwhile; ?>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label for="progress_percentage">New Progress %</label>
+                                <input type="number" name="progress_percentage" id="progress_percentage" class="form-control" min="0" max="100" required>
+                            </div>
+                            <button type="submit" name="update_progress" class="btn btn-primary">Update</button>
+                        </div>
+                        <?php if (!$has_in_progress): ?>
+                            <p class="text-muted" style="margin-top: 1rem;">No active ideas to update progress for.</p>
+                        <?php endif; ?>
+                    </form>
+                </div>
+            </div>
         </main>
     </div>
 </body>

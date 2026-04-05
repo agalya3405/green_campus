@@ -49,6 +49,28 @@ body {
     min-height: 100vh;
 }
 
+/* Admin Portal Specific Fixes */
+body.admin-portal {
+    background-color: #f4f6f9;
+    /* Soft light grey / blue tint */
+}
+
+body.admin-portal .main-content {
+    background-color: #f4f6f9;
+}
+
+body.admin-portal .card {
+    border: 1px solid #d1d8e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+body.admin-portal .page-title,
+body.admin-portal .card-title,
+body.admin-portal .table th {
+    color: #1a1a1a;
+    font-weight: 700;
+}
+
 /* === Layouts === */
 
 /* Auth Layout (Login/Register) */
@@ -348,7 +370,7 @@ body {
 
 /* Orange for In Progress */
 
-.staff-badge {
+.faculty-badge {
     background-color: #E0F2F1;
     color: #00695C;
     padding: 2px 8px;

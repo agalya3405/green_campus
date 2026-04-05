@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once 'config/session.php';
+start_guest_session();
 require_once 'config/db.php';
 
 if (isset($_SESSION['user_id'])) {
@@ -17,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirm = $_POST['confirm_password'] ?? '';
     $role = $_POST['role'] ?? 'student';
 
-    $allowed_roles = ['student', 'staff', 'admin'];
+    $allowed_roles = ['student', 'faculty', 'admin'];
     if (!in_array($role, $allowed_roles)) {
         $role = 'student';
     }
@@ -82,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label for="role">I am a...</label>
                 <select id="role" name="role" class="form-control">
                     <option value="student" <?php echo (($_POST['role'] ?? '') === 'student') ? 'selected' : ''; ?>>Student</option>
-                    <option value="staff" <?php echo (($_POST['role'] ?? '') === 'staff') ? 'selected' : ''; ?>>Staff Member</option>
+                    <option value="faculty" <?php echo (($_POST['role'] ?? '') === 'faculty') ? 'selected' : ''; ?>>Faculty Member</option>
                     <option value="admin" <?php echo (($_POST['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Administrator</option>
                 </select>
             </div>

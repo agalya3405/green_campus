@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 error_reporting(E_ALL);
@@ -25,7 +26,7 @@ if ($idea_id <= 0 || $remarks === '') {
 
 $sql = "UPDATE ideas
 SET status = 'Rejected',
-    assigned_staff_id = NULL,
+    assigned_faculty_id = NULL,
     admin_remarks = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND status = 'Pending'";

@@ -4,7 +4,8 @@ header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
 
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 error_reporting(E_ALL);
@@ -23,22 +24,22 @@ $filter = isset($_GET['filter']) && $_GET['filter'] == 'pending' ? 'pending' : '
 if ($filter === 'pending') {
     $query = "SELECT i.*,
               u.name AS student_name,
-              s.name AS staff_name,
+              s.name AS faculty_name,
               p.title AS problem_title
               FROM ideas i
               LEFT JOIN users u ON i.user_id = u.id
-              LEFT JOIN users s ON i.assigned_staff_id = s.id
+              LEFT JOIN users s ON i.assigned_faculty_id = s.id
               LEFT JOIN problems p ON i.problem_id = p.id
               WHERE i.status = 'Pending'
               ORDER BY i.created_at DESC";
 } else {
     $query = "SELECT i.*,
               u.name AS student_name,
-              s.name AS staff_name,
+              s.name AS faculty_name,
               p.title AS problem_title
               FROM ideas i
               LEFT JOIN users u ON i.user_id = u.id
-              LEFT JOIN users s ON i.assigned_staff_id = s.id
+              LEFT JOIN users s ON i.assigned_faculty_id = s.id
               LEFT JOIN problems p ON i.problem_id = p.id
               ORDER BY i.created_at DESC";
 }
@@ -46,12 +47,12 @@ if ($filter === 'pending') {
 $result = mysqli_query($conn, $query);
 if (!$result) die("SQL Error: " . mysqli_error($conn));
 
-// Staff dropdown: SELECT id, name FROM users WHERE role='staff'
-$staff_res = mysqli_query($conn, "SELECT id, name FROM users WHERE role = 'staff' ORDER BY name");
-if (!$staff_res) die("SQL Error: " . mysqli_error($conn));
-$staff_members = [];
-while ($s = mysqli_fetch_assoc($staff_res)) {
-    $staff_members[] = $s;
+// Faculty dropdown: SELECT id, name FROM users WHERE role='faculty'
+$faculty_res = mysqli_query($conn, "SELECT id, name FROM users WHERE role = 'faculty' ORDER BY name");
+if (!$faculty_res) die("SQL Error: " . mysqli_error($conn));
+$faculty_members = [];
+while ($s = mysqli_fetch_assoc($faculty_res)) {
+    $faculty_members[] = $s;
 }
 
 $success = $_GET['success'] ?? '';
@@ -102,7 +103,7 @@ $msg = $_GET['msg'] ?? '';
         }
     </style>
 </head>
-<body>
+<body class="admin-portal">
     <div class="dashboard-layout">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -113,13 +114,12 @@ $msg = $_GET['msg'] ?? '';
                 <a href="admin_dashboard.php" class="nav-item">Dashboard</a>
                 <a href="manage_ideas.php" class="nav-item active">Manage Ideas</a>
                 <a href="approved_ideas.php" class="nav-item">Approved Ideas</a>
-                <a href="manage_staff.php" class="nav-item">Manage Staff</a>
+                <a href="manage_faculty.php" class="nav-item">Manage Faculty</a>
                 <a href="reports.php" class="nav-item">Reports</a>
-                <a href="../leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="../hall_of_fame.php" class="nav-item">Hall of Fame</a>
+                <a href="../leaderboard.php?role=admin" class="nav-item">Leaderboard</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="../logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="../logout.php?role=admin" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
@@ -158,9 +158,9 @@ $msg = $_GET['msg'] ?? '';
                                     <th>Problem Title</th>
                                     <th>Student Solution</th>
                                     <th>Status</th>
-                                    <th>Assigned Staff</th>
+                                    <th>Assigned Faculty</th>
                                     <th>Admin Remarks</th>
-                                    <th>Staff Remarks</th>
+                                    <th>Faculty Remarks</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -182,13 +182,13 @@ $msg = $_GET['msg'] ?? '';
                                             </span>
                                         </td>
                                         <td>
-                                            <?php echo !empty($row['assigned_staff_id']) ? htmlspecialchars($row['staff_name'] ?? '-') : '-'; ?>
+                                            <?php echo !empty($row['assigned_faculty_id']) ? htmlspecialchars($row['faculty_name'] ?? '-') : '-'; ?>
                                         </td>
                                         <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                             <?php echo htmlspecialchars($row['admin_remarks'] ?? '-'); ?>
                                         </td>
                                         <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                            <?php echo htmlspecialchars($row['staff_remarks'] ?? '-'); ?>
+                                            <?php echo htmlspecialchars($row['faculty_remarks'] ?? '-'); ?>
                                         </td>
                                         <td>
                                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -224,11 +224,11 @@ $msg = $_GET['msg'] ?? '';
             <form id="approveForm" method="POST" action="approve_idea.php">
                 <input type="hidden" id="approve_idea_id" name="idea_id">
                 <div class="form-group">
-                    <label for="staff_id">Assign Staff (Required)</label>
-                    <select id="staff_id" name="staff_id" class="form-control" required>
-                        <option value="">-- Select Staff --</option>
-                        <?php foreach ($staff_members as $staff): ?>
-                            <option value="<?php echo $staff['id']; ?>"><?php echo htmlspecialchars($staff['name']); ?></option>
+                    <label for="faculty_id">Assign Faculty (Required)</label>
+                    <select id="faculty_id" name="faculty_id" class="form-control" required>
+                        <option value="">-- Select Faculty --</option>
+                        <?php foreach ($faculty_members as $faculty): ?>
+                            <option value="<?php echo $faculty['id']; ?>"><?php echo htmlspecialchars($faculty['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

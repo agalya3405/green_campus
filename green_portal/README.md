@@ -1,6 +1,6 @@
 # Campus Green Innovation Portal
 
-A simple web application for students and staff to submit eco-friendly ideas, and for admins to approve, assign, and track them.
+A simple web application for students and faculty to submit eco-friendly ideas, and for admins to approve, assign, and track them.
 
 ## Tech Stack
 
@@ -29,17 +29,17 @@ A simple web application for students and staff to submit eco-friendly ideas, an
 
 ## First Use
 
-- **Register** a user (choose role: Student, Staff, or Admin).
-- **Login** – Admin → Admin Dashboard; **Staff** → Staff Dashboard; **Student** → User Dashboard.
+- **Register** a user (choose role: Student, Faculty, or Admin).
+- **Login** – Admin → Admin Dashboard; **Faculty** → Faculty Dashboard; **Student** → User Dashboard.
 - **Student:** Submit ideas (Title, Description, Category: Waste / Energy / Water / Greenery), view your ideas.
-- **Staff:** See only ideas **assigned to you**; view details, update status (In Progress / Completed), add remarks.
-- **Admin:** View all ideas, Approve, **Assign to staff** (dropdown), and Update status.
+- **Faculty:** See only ideas **assigned to you**; view details, update status (In Progress / Completed), add remarks.
+- **Admin:** View all ideas, Approve, **Assign to faculty** (dropdown), and Update status.
 
-### Staff module (sample user)
+### Faculty module (sample user)
 
-1. If your database was created with an older `setup.sql`, run **`database/staff_module_migration.sql`** in phpMyAdmin (adds `assigned_staff_id`, `staff_remarks` to `ideas`).
-2. Create sample staff and assign ideas: open **http://localhost/green_portal/database/create_staff_sample.php** in the browser once.
-3. Log in as **staff@college.com** / **staff123** to use the Staff Dashboard.
+1. If your database was created with an older `setup.sql`, run **`database/faculty_module_migration.sql`** in phpMyAdmin (adds `assigned_faculty_id`, `faculty_remarks` to `ideas`).
+2. Create sample faculty and assign ideas: open **http://localhost/green_portal/database/create_faculty_sample.php** in the browser once.
+3. Log in as **faculty@college.com** / **faculty123** to use the Faculty Dashboard.
 
 ## Security
 
@@ -55,7 +55,7 @@ green_portal/
 ├── register.php
 ├── logout.php
 ├── dashboard.php
-├── staff_dashboard.php
+├── faculty_dashboard.php
 ├── submit_idea.php
 ├── view_ideas.php
 ├── view_idea.php

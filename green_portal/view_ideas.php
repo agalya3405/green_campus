@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once 'config/session.php';
+start_role_session('student');
 require_once 'config/db.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] === 'admin') {
@@ -22,8 +23,8 @@ if ($r) {
         $cols[] = $row['Field'];
     }
 }
-$sel = "i.id, i.title, i.description, i.category, i.status, i.assigned_to, i.created_at, s.name AS assigned_staff_name, p.title AS problem_title";
-if (in_array('staff_remarks', $cols)) $sel .= ", i.staff_remarks";
+$sel = "i.id, i.title, i.description, i.category, i.status, i.assigned_to, i.created_at, s.name AS assigned_faculty_name, p.title AS problem_title";
+if (in_array('faculty_remarks', $cols)) $sel .= ", i.faculty_remarks";
 if (in_array('admin_remarks', $cols)) $sel .= ", i.admin_remarks";
 if (in_array('updated_at', $cols)) $sel .= ", i.updated_at";
 
@@ -31,7 +32,7 @@ $stmt = mysqli_prepare(
     $conn,
     "SELECT $sel
      FROM ideas i
-     LEFT JOIN users s ON i.assigned_staff_id = s.id
+     LEFT JOIN users s ON i.assigned_faculty_id = s.id
      LEFT JOIN problems p ON i.problem_id = p.id
      WHERE i.user_id = ?
      ORDER BY i.created_at DESC"
@@ -59,11 +60,10 @@ $ideas_result = mysqli_stmt_get_result($stmt);
                 <a href="dashboard.php" class="nav-item">Dashboard</a>
                 <a href="submit_idea.php" class="nav-item">Submit Idea</a>
                 <a href="view_ideas.php" class="nav-item active">My Ideas</a>
-                <a href="leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="hall_of_fame.php" class="nav-item">Hall of Fame</a>
+                <a href="leaderboard.php?role=student" class="nav-item">Leaderboard</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="logout.php?role=student" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
@@ -94,7 +94,7 @@ $ideas_result = mysqli_stmt_get_result($stmt);
                                     <th>Problem</th>
                                     <th>My Solution (summary)</th>
                                     <th>Status</th>
-                                    <th>Assigned Staff</th>
+                                    <th>Assigned Faculty</th>
                                     <th>Remarks</th>
                                     <th>Last Updated</th>
                                     <th>Actions</th>
@@ -114,16 +114,16 @@ $ideas_result = mysqli_stmt_get_result($stmt);
                                         </td>
                                         <td>
                                             <?php 
-                                            $staff_name = $row['assigned_staff_name'] ?? $row['assigned_to'];
-                                            echo $staff_name ? htmlspecialchars($staff_name) : '—'; 
+                                            $faculty_name = $row['assigned_faculty_name'] ?? $row['assigned_to'];
+                                            echo $faculty_name ? htmlspecialchars($faculty_name) : '—'; 
                                             ?>
                                         </td>
                                         <td style="max-width: 250px;">
                                             <?php 
                                             if ($row['status'] === 'Rejected') {
                                                 echo '<span style="color: var(--status-rejected-text); font-size: 0.9em;">' . htmlspecialchars($row['admin_remarks'] ?? '') . '</span>';
-                                            } elseif (!empty($row['staff_remarks'])) {
-                                                echo '<span style="font-size: 0.9em;">' . htmlspecialchars($row['staff_remarks']) . '</span>';
+                                            } elseif (!empty($row['faculty_remarks'])) {
+                                                echo '<span style="font-size: 0.9em;">' . htmlspecialchars($row['faculty_remarks']) . '</span>';
                                             } else {
                                                 echo '—';
                                             }
@@ -136,7 +136,7 @@ $ideas_result = mysqli_stmt_get_result($stmt);
                                             ?>
                                         </td>
                                         <td>
-                                            <a href="view_idea.php?id=<?php echo (int) $row['id']; ?>" class="btn btn-sm btn-secondary">Details</a>
+                                            <a href="view_idea.php?id=<?php echo (int) $row['id']; ?>&role=student" class="btn btn-sm btn-secondary">Details</a>
                                         </td>
                                     </tr>
                                 <?php endwhile; ?>

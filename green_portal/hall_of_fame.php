@@ -1,15 +1,21 @@
 <?php
-session_start();
+require_once 'config/session.php';
+$requested_role = resolve_role_from_request(['admin', 'faculty', 'student'], 'guest');
+if ($requested_role === 'guest') {
+    start_guest_session();
+} else {
+    start_role_session($requested_role);
+}
 require_once 'config/db.php';
 
 $logged_in = isset($_SESSION['user_id']);
 $user_name = $logged_in ? $_SESSION['user_name'] : '';
 $role = $_SESSION['role'] ?? '';
 
-// Implemented ideas with student name and staff remarks (ideas table has title, not idea_title; student = users via user_id)
+// Implemented ideas with student name and faculty remarks (ideas table has title, not idea_title; student = users via user_id)
 $query = "SELECT i.id, i.title, i.description, i.updated_at,
           u.name AS student_name,
-          i.staff_remarks
+          i.faculty_remarks
           FROM ideas i
           LEFT JOIN users u ON i.user_id = u.id
           WHERE i.status = 'Completed'
@@ -36,8 +42,8 @@ if (!$result) die("SQL Error: " . mysqli_error($conn));
                     <?php if ($role === 'admin'): ?>
                         <a href="admin/admin_dashboard.php" class="nav-item">Dashboard</a>
                         <a href="admin/manage_ideas.php" class="nav-item">Manage Ideas</a>
-                    <?php elseif ($role === 'staff'): ?>
-                        <a href="staff_dashboard.php" class="nav-item">Dashboard</a>
+                    <?php elseif ($role === 'faculty'): ?>
+                        <a href="faculty_dashboard.php" class="nav-item">Dashboard</a>
                     <?php else: ?>
                         <a href="dashboard.php" class="nav-item">Dashboard</a>
                         <a href="submit_idea.php" class="nav-item">Submit Idea</a>
@@ -48,11 +54,10 @@ if (!$result) die("SQL Error: " . mysqli_error($conn));
                     <a href="login.php" class="nav-item">Login</a>
                 <?php endif; ?>
                 <a href="leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="hall_of_fame.php" class="nav-item active">Hall of Fame</a>
             </nav>
             <div class="sidebar-footer">
                 <?php if ($logged_in): ?>
-                    <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                    <a href="logout.php?role=<?php echo urlencode($role); ?>" class="nav-item" style="color: #D32F2F;">Logout</a>
                 <?php endif; ?>
             </div>
         </aside>
@@ -82,7 +87,7 @@ if (!$result) die("SQL Error: " . mysqli_error($conn));
                                     <th>Idea Title</th>
                                     <th>Description</th>
                                     <th>Student Name</th>
-                                    <th>Staff Remarks</th>
+                                    <th>Faculty Remarks</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -91,7 +96,7 @@ if (!$result) die("SQL Error: " . mysqli_error($conn));
                                         <td><?php echo htmlspecialchars($row['title']); ?></td>
                                         <td style="max-width: 300px;"><?php echo htmlspecialchars($row['description']); ?></td>
                                         <td><?php echo htmlspecialchars($row['student_name'] ?? '-'); ?></td>
-                                        <td style="max-width: 250px;"><?php echo htmlspecialchars($row['staff_remarks'] ?? '-'); ?></td>
+                                        <td style="max-width: 250px;"><?php echo htmlspecialchars($row['faculty_remarks'] ?? '-'); ?></td>
                                     </tr>
                                 <?php endwhile; ?>
                             </tbody>

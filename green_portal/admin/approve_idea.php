@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 error_reporting(E_ALL);
@@ -16,40 +17,40 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $idea_id = isset($_POST['idea_id']) ? (int) $_POST['idea_id'] : 0;
-$staff_id = isset($_POST['staff_id']) ? (int) $_POST['staff_id'] : 0;
+$faculty_id = isset($_POST['faculty_id']) ? (int) $_POST['faculty_id'] : 0;
 $remarks = trim($_POST['admin_remarks'] ?? '');
 
-if ($idea_id <= 0 || $staff_id <= 0 || $remarks === '') {
+if ($idea_id <= 0 || $faculty_id <= 0 || $remarks === '') {
     header("Location: admin_dashboard.php");
     exit();
 }
 
-// Approve workflow: status, assigned_staff_id, admin_remarks, updated_at. Also set assigned_to for display.
-$staff_name = null;
-$st = mysqli_prepare($conn, "SELECT id, name FROM users WHERE id = ? AND role = 'staff' LIMIT 1");
-mysqli_stmt_bind_param($st, "i", $staff_id);
+// Approve workflow: status, assigned_faculty_id, admin_remarks, updated_at. Also set assigned_to for display.
+$faculty_name = null;
+$st = mysqli_prepare($conn, "SELECT id, name FROM users WHERE id = ? AND role = 'faculty' LIMIT 1");
+mysqli_stmt_bind_param($st, "i", $faculty_id);
 mysqli_stmt_execute($st);
 $sr = mysqli_stmt_get_result($st);
 if ($row = mysqli_fetch_assoc($sr)) {
-    $staff_name = $row['name'];
+    $faculty_name = $row['name'];
 }
 mysqli_stmt_close($st);
 
-if (!$staff_name) {
+if (!$faculty_name) {
     header("Location: admin_dashboard.php");
     exit();
 }
 
 $sql = "UPDATE ideas
 SET status = 'Approved',
-    assigned_staff_id = ?,
+    assigned_faculty_id = ?,
     assigned_to = ?,
     admin_remarks = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND status = 'Pending'";
 
 $stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, "issi", $staff_id, $staff_name, $remarks, $idea_id);
+mysqli_stmt_bind_param($stmt, "issi", $faculty_id, $faculty_name, $remarks, $idea_id);
 if (!mysqli_stmt_execute($stmt)) {
     die("SQL Error: " . mysqli_error($conn));
 }

@@ -1,5 +1,11 @@
 <?php
-session_start();
+require_once 'config/session.php';
+$requested_role = resolve_role_from_request(['admin', 'faculty', 'student'], 'guest');
+if ($requested_role === 'guest') {
+    start_guest_session();
+} else {
+    start_role_session($requested_role);
+}
 require_once 'config/db.php';
 
 // Optional: allow public or require login. Spec says "Show top students" - allow access for all roles and guests for gamification.
@@ -60,8 +66,8 @@ while ($row = mysqli_fetch_assoc($result)) {
                     <?php if ($role === 'admin'): ?>
                         <a href="admin/admin_dashboard.php" class="nav-item">Dashboard</a>
                         <a href="admin/manage_ideas.php" class="nav-item">Manage Ideas</a>
-                    <?php elseif ($role === 'staff'): ?>
-                        <a href="staff_dashboard.php" class="nav-item">Dashboard</a>
+                    <?php elseif ($role === 'faculty'): ?>
+                        <a href="faculty_dashboard.php" class="nav-item">Dashboard</a>
                     <?php else: ?>
                         <a href="dashboard.php" class="nav-item">Dashboard</a>
                         <a href="submit_idea.php" class="nav-item">Submit Idea</a>
@@ -72,11 +78,10 @@ while ($row = mysqli_fetch_assoc($result)) {
                     <a href="login.php" class="nav-item">Login</a>
                 <?php endif; ?>
                 <a href="leaderboard.php" class="nav-item active">Leaderboard</a>
-                <a href="hall_of_fame.php" class="nav-item">Hall of Fame</a>
             </nav>
             <div class="sidebar-footer">
                 <?php if ($logged_in): ?>
-                    <a href="logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                    <a href="logout.php?role=<?php echo urlencode($role); ?>" class="nav-item" style="color: #D32F2F;">Logout</a>
                 <?php endif; ?>
             </div>
         </aside>

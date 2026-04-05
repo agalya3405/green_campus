@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once '../config/session.php';
+start_role_session('admin');
 require_once '../config/db.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
@@ -9,36 +10,36 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 
 $user_name = $_SESSION['user_name'];
 
-// Fetch only Approved ideas (submitter = users via user_id, staff = users via assigned_staff_id)
+// Fetch only Approved ideas (submitter = users via user_id, faculty = users via assigned_faculty_id)
 $query = "SELECT i.*,
           u.name AS student_name,
-          s.name AS staff_name
+          s.name AS faculty_name
           FROM ideas i
           LEFT JOIN users u ON i.user_id = u.id
-          LEFT JOIN users s ON i.assigned_staff_id = s.id
+          LEFT JOIN users s ON i.assigned_faculty_id = s.id
           WHERE i.status = 'Approved'
           ORDER BY i.created_at DESC";
 $result = mysqli_query($conn, $query);
 if (!$result) die("SQL Error: " . mysqli_error($conn));
 
-// Staff list with workload for modal (ordered by assigned_count ASC for smart selection)
-$staff_query = "SELECT u.id, u.name,
+// Faculty list with workload for modal (ordered by assigned_count ASC for smart selection)
+$faculty_query = "SELECT u.id, u.name,
                 COUNT(i.id) AS assigned_count,
                 SUM(CASE WHEN i.status = 'Completed' THEN 1 ELSE 0 END) AS completed_count
                 FROM users u
-                LEFT JOIN ideas i ON u.id = i.assigned_staff_id
-                WHERE u.role = 'staff'
+                LEFT JOIN ideas i ON u.id = i.assigned_faculty_id
+                WHERE u.role = 'faculty'
                 GROUP BY u.id
                 ORDER BY assigned_count ASC";
-$staff_result = mysqli_query($conn, $staff_query);
-if (!$staff_result) die("SQL Error: " . mysqli_error($conn));
-$staff_list = [];
+$faculty_result = mysqli_query($conn, $faculty_query);
+if (!$faculty_result) die("SQL Error: " . mysqli_error($conn));
+$faculty_list = [];
 $min_count = null;
-while ($row = mysqli_fetch_assoc($staff_result)) {
+while ($row = mysqli_fetch_assoc($faculty_result)) {
     $row['assigned_count'] = (int) $row['assigned_count'];
     $row['completed_count'] = (int) $row['completed_count'];
     if ($min_count === null) $min_count = $row['assigned_count'];
-    $staff_list[] = $row;
+    $faculty_list[] = $row;
 }
 
 $success = $_GET['success'] ?? '';
@@ -82,9 +83,9 @@ $msg = $_GET['msg'] ?? '';
             cursor: pointer;
         }
         .close:hover, .close:focus { color: black; text-decoration: none; cursor: pointer; }
-        .staff-row-available { background-color: #e8f5e9; }
-        .staff-row-busy { }
-        .staff-row-heavy { background-color: #ffebee; }
+        .faculty-row-available { background-color: #e8f5e9; }
+        .faculty-row-busy { }
+        .faculty-row-heavy { background-color: #ffebee; }
     </style>
 </head>
 <body>
@@ -97,13 +98,12 @@ $msg = $_GET['msg'] ?? '';
                 <a href="admin_dashboard.php" class="nav-item">Dashboard</a>
                 <a href="manage_ideas.php" class="nav-item">Manage Ideas</a>
                 <a href="approved_ideas.php" class="nav-item active">Approved Ideas</a>
-                <a href="manage_staff.php" class="nav-item">Manage Staff</a>
+                <a href="manage_faculty.php" class="nav-item">Manage Faculty</a>
                 <a href="reports.php" class="nav-item">Reports</a>
                 <a href="../leaderboard.php" class="nav-item">Leaderboard</a>
-                <a href="../hall_of_fame.php" class="nav-item">Hall of Fame</a>
             </nav>
             <div class="sidebar-footer">
-                <a href="../logout.php" class="nav-item" style="color: #D32F2F;">Logout</a>
+                <a href="../logout.php?role=admin" class="nav-item" style="color: #D32F2F;">Logout</a>
             </div>
         </aside>
 
@@ -127,7 +127,7 @@ $msg = $_GET['msg'] ?? '';
 
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Approved Ideas – Assign or Reassign Staff</h2>
+                    <h2 class="card-title">Approved Ideas – Assign or Reassign Faculty</h2>
                 </div>
 
                 <?php if (!$result || mysqli_num_rows($result) === 0): ?>
@@ -140,7 +140,7 @@ $msg = $_GET['msg'] ?? '';
                                     <th>Student Name</th>
                                     <th>Idea Title</th>
                                     <th>Description</th>
-                                    <th>Current Assigned Staff</th>
+                                    <th>Current Assigned Faculty</th>
                                     <th>Admin Remarks</th>
                                     <th>Action</th>
                                 </tr>
@@ -151,13 +151,13 @@ $msg = $_GET['msg'] ?? '';
                                         <td><?php echo htmlspecialchars($row['student_name'] ?? '-'); ?></td>
                                         <td><?php echo htmlspecialchars($row['title']); ?></td>
                                         <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?php echo htmlspecialchars($row['description']); ?>"><?php echo htmlspecialchars($row['description']); ?></td>
-                                        <td><?php echo !empty($row['assigned_staff_id']) ? htmlspecialchars($row['staff_name'] ?? '-') : '-'; ?></td>
+                                        <td><?php echo !empty($row['assigned_faculty_id']) ? htmlspecialchars($row['faculty_name'] ?? '-') : '-'; ?></td>
                                         <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?php echo htmlspecialchars($row['admin_remarks'] ?? '-'); ?></td>
                                         <td>
-                                            <?php if (empty($row['assigned_staff_id'])): ?>
-                                                <button type="button" onclick="openAssignModal(<?php echo (int) $row['id']; ?>)" class="btn btn-sm btn-approve" style="background-color: var(--status-approved-text); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Assign Staff</button>
+                                            <?php if (empty($row['assigned_faculty_id'])): ?>
+                                                <button type="button" onclick="openAssignModal(<?php echo (int) $row['id']; ?>)" class="btn btn-sm btn-approve" style="background-color: var(--status-approved-text); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Assign Faculty</button>
                                             <?php else: ?>
-                                                <button type="button" onclick="openAssignModal(<?php echo (int) $row['id']; ?>)" class="btn btn-sm" style="background-color: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Reassign Staff</button>
+                                                <button type="button" onclick="openAssignModal(<?php echo (int) $row['id']; ?>)" class="btn btn-sm" style="background-color: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Reassign Faculty</button>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -170,44 +170,44 @@ $msg = $_GET['msg'] ?? '';
         </main>
     </div>
 
-    <!-- Assign Staff Modal -->
+    <!-- Assign Faculty Modal -->
     <div id="assignModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeAssignModal()">&times;</span>
-            <h2 style="margin-bottom: 1rem; color: var(--primary-color);">Assign Staff to Idea</h2>
-            <form id="assignForm" method="POST" action="assign_staff.php">
+            <h2 style="margin-bottom: 1rem; color: var(--primary-color);">Assign Faculty to Idea</h2>
+            <form id="assignForm" method="POST" action="assign_faculty.php">
                 <input type="hidden" id="assign_idea_id" name="idea_id" value="">
-                <p style="margin-bottom: 1rem; color: #555;">Select a staff member. Availability is based on current workload.</p>
-                <?php if (empty($staff_list)): ?>
-                    <p class="empty-state">No staff members found.</p>
+                <p style="margin-bottom: 1rem; color: #555;">Select a faculty member. Availability is based on current workload.</p>
+                <?php if (empty($faculty_list)): ?>
+                    <p class="empty-state">No faculty members found.</p>
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
                                 <tr>
                                     <th>Select</th>
-                                    <th>Staff Name</th>
+                                    <th>Faculty Name</th>
                                     <th>Total Assigned Ideas</th>
                                     <th>Completed Ideas</th>
                                     <th>Availability Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($staff_list as $staff): ?>
+                                <?php foreach ($faculty_list as $faculty): ?>
                                     <?php
-                                    $available = $staff['assigned_count'] == 0;
-                                    $heavy = $staff['assigned_count'] >= 3;
-                                    $lowest = ($min_count !== null && $staff['assigned_count'] == $min_count);
-                                    $row_class = $heavy ? 'staff-row-heavy' : ($lowest ? 'staff-row-available' : 'staff-row-busy');
+                                    $available = $faculty['assigned_count'] == 0;
+                                    $heavy = $faculty['assigned_count'] >= 3;
+                                    $lowest = ($min_count !== null && $faculty['assigned_count'] == $min_count);
+                                    $row_class = $heavy ? 'faculty-row-heavy' : ($lowest ? 'faculty-row-available' : 'faculty-row-busy');
                                     $status_text = $available ? 'Available' : 'Busy';
                                     ?>
                                     <tr class="<?php echo $row_class; ?>">
                                         <td>
-                                            <input type="radio" name="staff_id" value="<?php echo (int) $staff['id']; ?>" id="staff_<?php echo $staff['id']; ?>" required>
+                                            <input type="radio" name="faculty_id" value="<?php echo (int) $faculty['id']; ?>" id="faculty_<?php echo $faculty['id']; ?>" required>
                                         </td>
-                                        <td><label for="staff_<?php echo $staff['id']; ?>"><?php echo htmlspecialchars($staff['name']); ?></label></td>
-                                        <td><?php echo $staff['assigned_count']; ?></td>
-                                        <td><?php echo $staff['completed_count']; ?></td>
+                                        <td><label for="faculty_<?php echo $faculty['id']; ?>"><?php echo htmlspecialchars($faculty['name']); ?></label></td>
+                                        <td><?php echo $faculty['assigned_count']; ?></td>
+                                        <td><?php echo $faculty['completed_count']; ?></td>
                                         <td><?php echo $heavy ? 'Heavy workload' : $status_text; ?></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -215,7 +215,7 @@ $msg = $_GET['msg'] ?? '';
                         </table>
                     </div>
                     <div class="form-actions" style="margin-top: 1rem;">
-                        <button type="submit" class="btn btn-primary">Assign Selected Staff</button>
+                        <button type="submit" class="btn btn-primary">Assign Selected Faculty</button>
                     </div>
                 <?php endif; ?>
             </form>
