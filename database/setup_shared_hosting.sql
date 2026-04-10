@@ -1,0 +1,34 @@
+-- Campus Green Innovation Portal - Shared hosting (InfinityFree, cPanel, etc.)
+-- In phpMyAdmin: click database if0_41582088_green_campus (yours) → Import → choose this file.
+-- Do NOT use CREATE DATABASE — your host already created the database.
+
+-- Table: users
+CREATE TABLE IF NOT EXISTS users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('student', 'faculty', 'admin') NOT NULL DEFAULT 'student',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: ideas
+CREATE TABLE IF NOT EXISTS ideas (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    status ENUM('Pending', 'Approved', 'Rejected', 'In Progress', 'Completed') NOT NULL DEFAULT 'Pending',
+    assigned_to VARCHAR(100) DEFAULT NULL,
+    assigned_faculty_id INT DEFAULT NULL,
+    faculty_remarks TEXT DEFAULT NULL,
+    admin_remarks TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_ideas_user_id (user_id),
+    KEY idx_ideas_status (status),
+    KEY idx_ideas_assigned_faculty_id (assigned_faculty_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_faculty_id) REFERENCES users(id) ON DELETE SET NULL
+);
